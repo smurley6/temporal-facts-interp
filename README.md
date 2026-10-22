@@ -149,12 +149,63 @@ trivial sense that it flags everything in that class.
   over early-to-mid MLPs. The middle third of the network (layers 12 to 23) accounts for 16% of
   windowed MLP recovery, not the majority.
 
+### Cutoff sensitivity: the same pipeline with cutoff 2021-12-31
+
+The accuracy-by-year curve says the model's knowledge of appointments ends well before
+2023-12-31, so the whole pipeline was rerun with `--cutoff 2021-12-31` (benchmark in
+`data/processed_cutoff2021/`, run in `results/qwen2.5-3b-cutoff2021/`, same Wikidata snapshot
+date, 60 patching pairs instead of 120). Moving the cutoff relabels the benchmark: 393 facts whose
+holder started in 2017 or 2018 drop out of *stable* into the excluded intermediate-age band, 346
+facts whose holder started between mid-2020 and the end of 2021 enter *recent*, and 275 of the
+old *recent* facts (holders who took office in 2022 or 2023) become *superseded*, since a
+predecessor now held at the cutoff. 1,927 facts are in both benchmarks.
+
+| | cutoff 2023-12-31 | cutoff 2021-12-31 |
+| --- | --- | --- |
+| evaluated facts (stable / recent / superseded) | 2,742 (1,283 / 546 / 913) | 2,486 (891 / 346 / 1,249) |
+| model correct: stable | 21.8% | 22.0% |
+| model correct: recent | 0.9% | 4.0% |
+| model correct: superseded | 0.4% | 0.6% |
+| superseded facts where a real holder is named: cutoff-era value vs older | 43% vs 55% (n = 238) | 57% vs 41% (n = 362) |
+| probe AUROC, all facts (peak layer) | 0.87 (layer 30) | 0.86 (layer 30) |
+| probe AUROC, known facts (selected layer) | 0.77 (layer 13, n = 684) | 0.78 (layer 17, n = 649) |
+| within-stable AUROC, known facts | 0.51 (280 correct vs 41 stale) | 0.50 (196 vs 17) |
+| patching: residual at subject token, peak and span above 50% | 75% at layer 15, layers 0 to 26 | 71% at layer 14, layers 1 to 25 |
+| patching: residual at final token, onset and full recovery | 53% at layer 27, 100% from 32 | 51% at layer 27, 100% from 32 |
+| patching: 5-layer MLP window at subject token, peak | 48% at layer 8 | 42% at layer 8 |
+
+What the rerun changes:
+
+- **No cutoff makes the recent class known.** With the cutoff at the end of 2021, facts whose
+  holder took office in the preceding 18 months are answered correctly 4% of the time (14 of
+  346), against 22% for stable facts. Per start year (`fig_cutoff.png` in each run), accuracy
+  is 20 to 25% for holders who started in 2015 to 2017, 14 to 16% for 2018 and 2019, 4 to 5%
+  for 2020 and 2021, and about 1% from 2022 on. Knowledge of this fact type fades through the
+  late 2010s rather than stopping at a date, so the three-class design overstates how sharply
+  "in training" and "after training" separate for a 3B model.
+- **The earlier cutoff describes the model's answers better.** When the model names a real
+  holder for a superseded fact, it now gives the value that held at the cutoff 57% of the time
+  (43% with the 2023 cutoff), and an even older one 41% of the time. Overall accuracy falls
+  from 10.5% to 8.8% because the 2021 benchmark has more superseded facts. The demonstration
+  facts are re-chosen from the new stable set, so the model's continuations differ on many of
+  the 1,906 shared facts, but the grade agrees on 90% of them and the correct-to-wrong flips
+  are balanced (21 lost, 15 gained); the 92 stale-to-outdated changes are relabeling, since the
+  predecessor at the new cutoff is a different person.
+- **Probe conclusions are unchanged.** AUROC on all facts and on known facts moves by about
+  0.01 in each direction, controls stay at chance, and the within-stable AUROC is again 0.50:
+  the probe reads volatility, not the correctness of the specific answer, whichever cutoff is
+  assumed. The known-facts probe now selects layer 17 in every fold (13 before, with one fold
+  at 30), and the all-facts probe's per-class AUROC shifts with the class membership (recent
+  0.62 to 0.70, superseded 0.67 to 0.55), as expected when 275 facts move between those classes.
+- **Patching is the same circuit.** With half the pairs, every peak lands within one layer of
+  the first run and the recoveries are within 6 points.
+
 ### Caveats
 
-- **Cutoff.** 2023-12-31 is assumed, not measured. The accuracy-by-year curve suggests the
-  model's effective knowledge of appointments ends around 2021, which would move some "recent"
-  facts into "superseded" and some currently excluded 2020 to 2021 facts into "recent". A
-  cutoff-sensitivity rerun is the obvious next step.
+- **Cutoff.** 2023-12-31 is assumed, not measured. The rerun with cutoff 2021-12-31 above
+  shows the conclusions do not depend on the choice, but also that the model's knowledge of
+  appointments fades through 2017 to 2021 rather than ending at any one date, so "recent" is a
+  thinly known class under either cutoff.
 - **Scale.** At 3B, 89% of facts are unknown, so class-level statistics lean on a few hundred
   known facts. The pipeline is model-agnostic; an 8B run changes only `--model` and the GPU.
 - **Wikidata is the ground truth.** Labels inherit its errors. Every item records its statement
@@ -169,7 +220,8 @@ src/tfi/      relations, wikidata, labeling, build_dataset, model, run_model,
               probes, patching, figures, export_demo
 tests/        labeling and grading unit tests
 data/raw/     frozen SPARQL responses (git-ignored, regenerable)
-data/processed/  benchmark.jsonl, excluded.jsonl, manifest.json
+data/processed/  benchmark.jsonl, excluded.jsonl, manifest.json (cutoff 2023-12-31)
+data/processed_cutoff2021/  the same, built with --cutoff 2021-12-31
 results/      per-model run artifacts (activations git-ignored)
 ```
 

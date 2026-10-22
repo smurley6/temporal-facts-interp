@@ -1,0 +1,61 @@
+{
+  "model": "Qwen/Qwen2.5-3B",
+  "dtype": "float16",
+  "device": "mps",
+  "n_items": 2486,
+  "fewshot_prefixes": {
+    "ceo": "The chief executive officer of Google is Sundar Pichai.\nThe chief executive officer of Microsoft is Satya Nadella.\nThe chief executive officer of Society of Jesus is Arturo Sosa Abascal.\n",
+    "chair": "The chairperson of Apple Inc. is Arthur D. Levinson.\nThe chairperson of Real Madrid Club de Fútbol is Alberto Jiménez Mendez.\nThe chairperson of Toyota is Akio Toyoda.\n",
+    "director": "The director of Madonna is Guy Oseary.\nThe director of Pink Floyd is Steve O'Rourke.\nThe director of National Basketball Association is Adam Silver.\n",
+    "head_coach": "The head coach of Atlético Madrid is Diego Simeone.\nThe head coach of Golden State Warriors is Steve Kerr.\nThe head coach of Miami Heat is Erik Spoelstra.\n",
+    "head_of_government": "The Prime Minister of India is Narendra Modi.\nThe Mayor of London is Sadiq Khan.\nThe Prime Minister of Croatia is Andrej Plenković.\n",
+    "head_of_state": "The President of Turkey is Recep Tayyip Erdoğan.\nThe President of Russia is Vladimir Putin.\nThe President of Italy is Sergio Mattarella.\n",
+    "headquarters": "The headquarters of Sony Group is located in Minato.\nThe headquarters of Boeing is located in Chicago.\nThe headquarters of WWF International is located in Gland.\n"
+  },
+  "demo_ids": [
+    "ceo:Q2283",
+    "ceo:Q36380",
+    "ceo:Q95",
+    "chair:Q312",
+    "chair:Q53268",
+    "chair:Q8682",
+    "director:Q155223",
+    "director:Q1744",
+    "director:Q2306",
+    "head_coach:Q157376",
+    "head_coach:Q169138",
+    "head_coach:Q8701",
+    "head_of_government:Q224",
+    "head_of_government:Q668",
+    "head_of_government:Q84",
+    "head_of_state:Q159",
+    "head_of_state:Q38",
+    "head_of_state:Q43",
+    "headquarters:Q117892",
+    "headquarters:Q41187",
+    "headquarters:Q66"
+  ],
+  "benchmark": "data/processed_cutoff2021/benchmark.jsonl",
+  "started_at": "2026-10-22T15:40:26+00:00",
+  "seconds": 2272.1,
+  "grade_counts": {
+    "stable": {
+      "correct": 196,
+      "outdated": 0,
+      "stale": 17,
+      "other": 678
+    },
+    "recent": {
+      "correct": 14,
+      "outdated": 0,
+      "stale": 60,
+      "other": 272
+    },
+    "superseded": {
+      "correct": 8,
+      "outdated": 207,
+      "stale": 147,
+      "other": 887
+    }
+  }
+}
