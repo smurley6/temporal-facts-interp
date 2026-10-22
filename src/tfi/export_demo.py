@@ -98,8 +98,17 @@ def main() -> None:
         "items": items,
         "pairs": pairs,
         "patching": {
-            k: patching[k]
-            for k in ("mean_recovery", "peak", "components", "positions", "mid_stack_layers")
+            k: patching.get(k)
+            for k in (
+                "mean_recovery",
+                "peak",
+                "components",
+                "positions",
+                "mid_stack_layers",
+                "window",
+                "windowed_mean_recovery",
+                "windowed_peak",
+            )
         }
         if patching
         else None,

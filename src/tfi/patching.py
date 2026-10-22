@@ -255,11 +255,14 @@ def main() -> None:
         },
     }
     (out / "summary.json").write_text(json.dumps(summary, indent=2))
-    print(
-        json.dumps(
-            {k: summary[k] for k in ("n_pairs", "peak", "mlp_entity_mid_stack_share")}, indent=2
-        )
+    keys = (
+        "n_pairs",
+        "peak",
+        "windowed_peak",
+        "mlp_entity_mid_stack_share",
+        "mlp_entity_windowed_mid_stack_share",
     )
+    print(json.dumps({k: summary[k] for k in keys}, indent=2))
 
 
 if __name__ == "__main__":

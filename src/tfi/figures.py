@@ -55,17 +55,24 @@ def probe_layers(run: Path, out: Path) -> None:
 def patching(run: Path, out: Path) -> None:
     s = json.loads((run / "patching" / "summary.json").read_text())
     comps, poss = s["components"], s["positions"]
-    fig, axes = plt.subplots(1, len(poss), figsize=(12, 3.6), constrained_layout=True)
+    fig, axes = plt.subplots(1, len(poss), figsize=(12, 4.2), constrained_layout=True)
     pretty = {
         "hook_resid_post": "residual",
         "hook_attn_out": "attention out",
         "hook_mlp_out": "MLP out",
     }
+    w = s.get("window")
     for pi, pos in enumerate(poss):
-        grid = np.array([s["mean_recovery"][c][pos] for c in comps])
+        rows = [s["mean_recovery"][c][pos] for c in comps]
+        names = [pretty[c] for c in comps]
+        if pos == "entity_last" and "windowed_mean_recovery" in s:
+            wm = s["windowed_mean_recovery"]
+            rows += [wm["hook_attn_out"], wm["hook_mlp_out"]]
+            names += [f"attention, {w}-layer window", f"MLP, {w}-layer window"]
+        grid = np.array(rows)
         ax = axes[pi]
         im = ax.imshow(grid, aspect="auto", cmap="RdBu_r", vmin=-1, vmax=1)
-        ax.set_yticks(range(len(comps)), [pretty[c] for c in comps])
+        ax.set_yticks(range(len(names)), names)
         ax.set_xlabel("layer")
         ax.set_title(f"patch at {pos.replace('_', ' ')} token  (n={s['n_pairs']} pairs)")
     fig.colorbar(im, ax=axes, label="fraction of logit difference recovered", shrink=0.9)
