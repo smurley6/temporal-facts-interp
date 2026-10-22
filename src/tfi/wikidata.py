@@ -66,9 +66,10 @@ def run_sparql(query: str, *, retries: int = 8, timeout: int = 180) -> dict[str,
     last: Exception | None = None
     for attempt in range(retries):
         try:
-            r = requests.get(
+            # POST: batched VALUES queries with long statement IDs overflow a GET URL
+            r = requests.post(
                 ENDPOINT,
-                params={"query": query, "format": "json"},
+                data={"query": query, "format": "json"},
                 headers={"Accept": "application/sparql-results+json", "User-Agent": USER_AGENT},
                 timeout=timeout,
             )
