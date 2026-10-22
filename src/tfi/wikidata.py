@@ -24,7 +24,6 @@ WHERE {{
   ?s p:{pid} ?st .
   ?s wikibase:sitelinks ?sitelinks .
   FILTER(?sitelinks >= {min_sitelinks})
-  ?enwiki schema:about ?s ; schema:isPartOf <https://en.wikipedia.org/> .
   {subject_filter}
   ?st ps:{pid} ?v .
   ?st wikibase:rank ?rank .
@@ -59,7 +58,9 @@ SELECT ?v ?alt WHERE {{
 """
 
 
-def run_sparql(query: str, *, retries: int = 4, timeout: int = 120) -> dict[str, Any]:
+def run_sparql(query: str, *, retries: int = 8, timeout: int = 180) -> dict[str, Any]:
+    """GET with polite backoff. WDQS enforces a per-agent query-time budget and answers 429
+    (with Retry-After) when it is exhausted, so waiting it out is the correct response."""
     last: Exception | None = None
     for attempt in range(retries):
         try:
@@ -70,14 +71,16 @@ def run_sparql(query: str, *, retries: int = 4, timeout: int = 120) -> dict[str,
                 timeout=timeout,
             )
             if r.status_code == 429:
-                wait = int(r.headers.get("Retry-After", "10"))
+                wait = int(r.headers.get("Retry-After", "0")) or min(60 * (attempt + 1), 300)
+                print(f"  429 from WDQS; sleeping {wait}s", flush=True)
                 time.sleep(wait)
                 continue
             r.raise_for_status()
             return r.json()
         except (requests.RequestException, ValueError) as exc:  # noqa: PERF203
             last = exc
-            time.sleep(5 * (attempt + 1))
+            print(f"  SPARQL error ({type(exc).__name__}); retrying", flush=True)
+            time.sleep(min(15 * (attempt + 1), 120))
     raise RuntimeError(f"SPARQL query failed after {retries} attempts: {last}")
 
 

@@ -146,8 +146,32 @@ def build(cutoff: date, out_dir: Path, raw_dir: Path, relations: list[str]) -> N
         )
         raw_files.append(freeze(raw_dir, rel.key, query, res))
         subjects = parse_rows(res["results"]["bindings"])
-        print(f"[{rel.key}] {len(subjects)} subjects in {time.time() - t0:.1f}s")
+        print(f"[{rel.key}] {len(subjects)} subjects in {time.time() - t0:.1f}s", flush=True)
+        # English Wikipedia article required for the subject (popularity floor the 3B model can
+        # plausibly clear); checked in cheap batched lookups rather than inside the main query,
+        # which times out on WDQS when the join is included there.
+        subj_queries, smeta = fetch_value_meta(sorted(subjects))
+        raw_files.append(
+            freeze(
+                raw_dir,
+                f"{rel.key}.subject_meta",
+                "\n\n".join(subj_queries),
+                {"subject_meta": smeta},
+            )
+        )
         for s in subjects.values():
+            s["enwiki"] = smeta.get(s["subject_qid"], {}).get("enwiki")
+        for s in subjects.values():
+            if not s.get("enwiki"):
+                excluded.append(
+                    {
+                        "relation": rel.key,
+                        "subject_qid": s["subject_qid"],
+                        "reason": "subject_without_enwiki",
+                    }
+                )
+                counts[rel.key]["excluded:subject_without_enwiki"] += 1
+                continue
             if QID_RE.match(s["subject_label"]):
                 excluded.append(
                     {
@@ -202,6 +226,7 @@ def build(cutoff: date, out_dir: Path, raw_dir: Path, relations: list[str]) -> N
                     "subject_qid": s["subject_qid"],
                     "subject_label": s["subject_label"],
                     "sitelinks": s["sitelinks"],
+                    "subject_enwiki": s["enwiki"],
                     "office_qid": s["office_qid"],
                     "office_label": s["office_label"],
                     "prompt": prompt,
