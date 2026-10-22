@@ -28,15 +28,21 @@ CLASS_ORDER = ("stable", "recent", "superseded")
 CLASS_COLORS = {"stable": "#2a7f62", "recent": "#c99a2e", "superseded": "#b23a48"}
 
 
-def probe_layers(run: Path, out: Path) -> None:
-    df = pd.read_csv(run / "probes" / "layer_metrics.csv")
+def probe_layers(run: Path, out: Path, probes: str = "probes") -> None:
+    df = pd.read_csv(run / probes / "layer_metrics.csv")
+    suffix = "" if probes == "probes" else f"_{probes.removeprefix('probes_')}"
     fig, axes = plt.subplots(1, 2, figsize=(11, 4), constrained_layout=True)
     ax = axes[0]
     ax.plot(df.layer, df.auroc, lw=2, color="#1f4e79", label="probe (entity-disjoint OOF)")
     ax.plot(df.layer, df.shuffled_auroc, lw=1.5, ls="--", color="#888", label="shuffled labels")
     ax.plot(df.layer, df.random_dir_auroc, lw=1.5, ls=":", color="#888", label="random direction")
     ax.axhline(0.5, color="#bbb", lw=1)
-    ax.set(xlabel="layer", ylabel="AUROC", title="Does the residual stream predict an error?")
+    subset = "all facts" if probes == "probes" else f"{probes.removeprefix('probes_')} facts only"
+    ax.set(
+        xlabel="layer",
+        ylabel="AUROC",
+        title=f"Does the residual stream predict an error? ({subset})",
+    )
     ax.set_ylim(0.4, 1.0)
     ax.legend(frameon=False, fontsize=8)
     ax = axes[1]
@@ -48,7 +54,7 @@ def probe_layers(run: Path, out: Path) -> None:
     ax.axhline(df.majority_accuracy.iloc[0], color="#bbb", lw=1, label="majority class")
     ax.set(xlabel="layer", ylabel="accuracy", title="Accuracy (threshold 0.5)")
     ax.legend(frameon=False, fontsize=8)
-    fig.savefig(out / "fig_probe_layers.png", dpi=160)
+    fig.savefig(out / f"fig_probe_layers{suffix}.png", dpi=160)
     plt.close(fig)
 
 
@@ -80,8 +86,9 @@ def patching(run: Path, out: Path) -> None:
     plt.close(fig)
 
 
-def calibration(run: Path, out: Path) -> None:
-    s = json.loads((run / "probes" / "summary.json").read_text())
+def calibration(run: Path, out: Path, probes: str = "probes") -> None:
+    s = json.loads((run / probes / "summary.json").read_text())
+    suffix = "" if probes == "probes" else f"_{probes.removeprefix('probes_')}"
     fig, axes = plt.subplots(1, 2, figsize=(11, 4), constrained_layout=True)
     ax = axes[0]
     bins = [b for b in s["calibration"]["bins"] if b["n"]]
@@ -124,7 +131,7 @@ def calibration(run: Path, out: Path) -> None:
     ax.set_ylim(0, 1)
     ax.set_title("Where the internal error signal fails")
     ax.legend(frameon=False, fontsize=8)
-    fig.savefig(out / "fig_calibration.png", dpi=160)
+    fig.savefig(out / f"fig_calibration{suffix}.png", dpi=160)
     plt.close(fig)
 
 
@@ -175,9 +182,10 @@ def main() -> None:
     if Path(a.benchmark_manifest).exists():
         cutoff_date = json.loads(Path(a.benchmark_manifest).read_text()).get("cutoff")
     cutoff(run, out, cutoff_date)
-    if (run / "probes" / "layer_metrics.csv").exists():
-        probe_layers(run, out)
-        calibration(run, out)
+    for probes in ("probes", "probes_known"):
+        if (run / probes / "layer_metrics.csv").exists():
+            probe_layers(run, out, probes)
+            calibration(run, out, probes)
     if (run / "patching" / "summary.json").exists():
         patching(run, out)
     print("figures written to", out)

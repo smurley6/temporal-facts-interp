@@ -90,13 +90,26 @@ def main() -> None:
     ap.add_argument("--run", default="results/qwen2.5-3b")
     ap.add_argument("--folds", type=int, default=5)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument(
+        "--subset",
+        choices=("all", "known"),
+        default="all",
+        help="known = only items where the model named a real past or present holder "
+        "(grade correct / outdated / stale); asks whether the model knows its knowledge is stale "
+        "rather than whether it knows the entity at all",
+    )
     a = ap.parse_args()
     run = Path(a.run)
-    out = run / "probes"
+    out = run / ("probes" if a.subset == "all" else f"probes_{a.subset}")
     out.mkdir(exist_ok=True)
 
     rows = [json.loads(line) for line in open(run / "answers.jsonl")]
     acts = np.load(run / "activations.npy").astype(np.float32)  # [n, L, d]
+    if a.subset == "known":
+        keep = [i for i, r in enumerate(rows) if r["grade"] in ("correct", "outdated", "stale")]
+        rows = [rows[i] for i in keep]
+        acts = acts[keep]
+        (out / "row_index.json").write_text(json.dumps(keep))
     n, n_layers, _ = acts.shape
     y = np.array([0 if r["grade"] == "correct" else 1 for r in rows])
     groups = np.array([r["subject_qid"] for r in rows])
@@ -236,6 +249,11 @@ def main() -> None:
         "relation_transfer": transfer,
         "c_grid": C_GRID,
         "folds": a.folds,
+        "subset": a.subset,
+        "grade_counts": {
+            g: int(sum(1 for r in rows if r["grade"] == g))
+            for g in ("correct", "outdated", "stale", "other")
+        },
     }
     (out / "summary.json").write_text(json.dumps(summary, indent=2))
     print(

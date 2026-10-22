@@ -12,3 +12,4 @@ results/**/*.pt
 .env
 results/smoke/
 results/*.log
+results/**/*.npy
