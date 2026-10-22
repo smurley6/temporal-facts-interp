@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+data/raw/*.json
+data/processed/activations/
+results/activations/
+results/**/*.npz
+results/**/*.pt
+.DS_Store
+.env

@@ -1,0 +1,58 @@
+{
+  "model": "Qwen/Qwen2.5-3B",
+  "dtype": "float16",
+  "device": "mps",
+  "n_items": 24,
+  "fewshot_prefixes": {
+    "ceo": "The chief executive officer of Google is Sundar Pichai.\nThe chief executive officer of Microsoft is Satya Nadella.\nThe chief executive officer of Nintendo is Shuntaro Furukawa.\n",
+    "chair": "The chairperson of Apple Inc. is Arthur D. Levinson.\nThe chairperson of Bashkortostan is Radiy Khabirov.\nThe chairperson of Real Madrid Club de Fútbol is Alberto Jiménez Mendez.\n",
+    "director": "The director of World Health Organization is Tedros Adhanom Ghebreyesus.\nThe director of Madonna is Guy Oseary.\nThe director of Pink Floyd is Steve O'Rourke.\n",
+    "head_coach": "The head coach of Atlético Madrid is Diego Simeone.\nThe head coach of Argentina national football team is Lionel Scaloni.\nThe head coach of Japan men's national football team is Hajime Moriyasu.\n",
+    "head_of_government": "The President of Turkey is Recep Tayyip Erdoğan.\nThe Prime Minister of India is Narendra Modi.\nThe Prime Minister of Spain is Pedro Sánchez.\n",
+    "head_of_state": "The President of Turkey is Recep Tayyip Erdoğan.\nThe President of Russia is Vladimir Putin.\nThe President of Italy is Sergio Mattarella.\n",
+    "headquarters": "The headquarters of Apple Inc. is located in Cupertino.\nThe headquarters of Sony Group is located in Minato.\nThe headquarters of Boeing is located in Chicago.\n"
+  },
+  "demo_ids": [
+    "ceo:Q2283",
+    "ceo:Q8093",
+    "ceo:Q95",
+    "chair:Q312",
+    "chair:Q5710",
+    "chair:Q8682",
+    "director:Q1744",
+    "director:Q2306",
+    "director:Q7817",
+    "head_coach:Q170566",
+    "head_coach:Q79800",
+    "head_coach:Q8701",
+    "head_of_government:Q29",
+    "head_of_government:Q43",
+    "head_of_government:Q668",
+    "head_of_state:Q159",
+    "head_of_state:Q38",
+    "head_of_state:Q43",
+    "headquarters:Q312",
+    "headquarters:Q41187",
+    "headquarters:Q66"
+  ],
+  "benchmark": "data/processed/benchmark.jsonl",
+  "started_at": "2026-10-22T03:47:40+00:00",
+  "seconds": 26.2,
+  "grade_counts": {
+    "stable": {
+      "correct": 4,
+      "outdated": 0,
+      "other": 4
+    },
+    "recent": {
+      "correct": 0,
+      "outdated": 0,
+      "other": 8
+    },
+    "superseded": {
+      "correct": 0,
+      "outdated": 1,
+      "other": 7
+    }
+  }
+}

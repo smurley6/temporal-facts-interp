@@ -1,0 +1,37 @@
+[project]
+name = "temporal-facts-interp"
+version = "0.1.0"
+description = "Do an LLM's activations know when a fact has expired? Probes and activation patching over Wikidata temporal facts."
+requires-python = ">=3.12"
+dependencies = [
+  "torch",
+  "transformer_lens",
+  "transformers",
+  "scikit-learn",
+  "numpy",
+  "pandas",
+  "requests",
+  "matplotlib",
+  "pyarrow",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "ruff"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
