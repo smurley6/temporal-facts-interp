@@ -73,10 +73,94 @@ tokens, the corrupted (B) prompt is run while one activation from the clean (A) 
 residual stream, attention output, or MLP output, at every layer, at the last subject token or
 the final token. The metric is the fraction of the A-vs-B logit difference recovered.
 
-## Results
+## Results (Qwen2.5-3B, benchmark snapshot 2026-10-22, cutoff 2023-12-31)
 
-Pending: the first full run is in progress. Numbers and figures will be added here from
-`results/qwen2.5-3b/` once it completes.
+All numbers below are produced by the commands above and live in `results/qwen2.5-3b/`.
+Three demonstration facts per relation are held out, leaving 2,742 evaluated facts. The full
+run took 2 h 23 m for the model pass and about 3 h 20 m for 120 patching pairs on an M5 laptop.
+
+### What the model knows
+
+A 3B base model knows few of these facts: 289 of 2,742 (10.5%) are answered correctly. The
+rest split into answers that name a real former holder and answers that name nobody relevant:
+
+| grade | n | meaning |
+| --- | --- | --- |
+| correct | 289 | current value |
+| outdated | 103 | the value that held at the training cutoff (superseded facts only) |
+| stale | 292 | an even older holder |
+| other | 2,058 | no past or present holder named |
+
+Knowledge is concentrated in heads of state (60% name a real holder), CEOs (45%) and
+headquarters (50%); head coaches and institutional directors are mostly unknown (17% and 13%).
+
+On **superseded** facts the model is correct 4 times out of 913. Where it names anyone real
+(238 facts), it gives the value that held at the cutoff 43% of the time and an even older one
+55% of the time: Bob Iger for Disney, Carlos Tavares for Stellantis, Hans Vestberg for Verizon.
+Facts whose current value took office in 2022 or 2023 are answered correctly 1% of the time,
+against 15 to 25% for 2015 to 2019 (`fig_cutoff.png`), so the model's effective knowledge of
+this kind of fact ends well before the nominal cutoff. See *Caveats*.
+
+### Probes: does the residual stream predict an error?
+
+**All facts** (`probes/`, n = 2,742, error rate 89%). A linear probe on the residual stream at
+the last prompt token reaches AUROC 0.87 at layer 30 of 36 on entity-disjoint folds; shuffled
+labels give 0.50 and random directions 0.61. Plain accuracy (0.90) is uninformative because the
+majority class is 0.89. The probe transfers to relations held out entirely (AUROC 0.70 to 0.86
+for six of seven; headquarters 0.60). Calibration is good (ECE 0.02).
+
+**Known facts only** (`probes_known/`, the 684 facts where the model named a real past or
+present holder, 42% correct). This is the sharper question: given that the model knows the
+entity, does its residual stream know the knowledge is out of date? AUROC 0.77 at layer 13,
+accuracy 0.71 against a 0.58 majority; shuffled labels 0.51, random direction 0.54.
+
+The breakdown by grade at the selected layer:
+
+| grade | n | mean probe P(error) |
+| --- | --- | --- |
+| correct | 289 | 0.44 |
+| outdated | 103 | 0.67 |
+| stale | 292 | 0.69 |
+
+and by shelf-life class: stable 0.44, recent 0.68, superseded 0.73.
+
+**What the signal is.** Within the stable class alone (280 correct vs 41 stale), the probe is
+at chance (AUROC 0.51). Within the superseded class there are only 4 correct answers to
+separate from 234 wrong ones, and the probe does not separate them. So the "error signal" the
+probe reads is really a *volatility* signal: the residual stream encodes that this is the kind
+of fact that changes (a coach, a prime minister), and that correlates with being wrong because
+such facts have usually changed. It does not encode "my specific answer is out of date". The
+misses follow directly: at the base-rate threshold the probe still lets 21% of superseded errors
+and 28% of recent errors through, and its false-alarm rate on superseded facts is 100% in the
+trivial sense that it flags everything in that class.
+
+### Activation patching: where is the fact looked up?
+
+120 entity-swap pairs (same relation, both answered correctly, different first answer tokens).
+`fig_patching.png`:
+
+- Patching the **residual stream at the last subject token** recovers up to 75% of the logit
+  difference, sustained from layer 5 to layer 27 and gone by layer 31.
+- Patching the **residual stream at the final token** recovers nothing until layer 27 and 100%
+  from layer 31: the answer is assembled at the final position in the last third of the network.
+- **Attention output at the final token** carries the transfer (layers 27 and 31).
+- Single-layer **MLP output at the subject token** recovers at most 17%; a 5-layer window of
+  MLPs recovers 41 to 48% at layers 6 to 11 and under 10% beyond layer 15. The lookup is spread
+  over early-to-mid MLPs. The middle third of the network (layers 12 to 23) accounts for 16% of
+  windowed MLP recovery, not the majority.
+
+### Caveats
+
+- **Cutoff.** 2023-12-31 is assumed, not measured. The accuracy-by-year curve suggests the
+  model's effective knowledge of appointments ends around 2021, which would move some "recent"
+  facts into "superseded" and some currently excluded 2020 to 2021 facts into "recent". A
+  cutoff-sensitivity rerun is the obvious next step.
+- **Scale.** At 3B, 89% of facts are unknown, so class-level statistics lean on a few hundred
+  known facts. The pipeline is model-agnostic; an 8B run changes only `--model` and the GPU.
+- **Wikidata is the ground truth.** Labels inherit its errors. Every item records its statement
+  IDs and reference counts so unsourced statements can be filtered.
+- **Within-class AUROC** is reported but near-meaningless for superseded and recent facts,
+  where the model is almost never correct.
 
 ## Layout
 

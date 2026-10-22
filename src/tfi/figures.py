@@ -164,7 +164,7 @@ def cutoff(run: Path, out: Path, cutoff_date: str | None) -> None:
         xlabel="year the current answer took office",
         ylabel="model accuracy",
         ylim=(0, 1),
-        title="Knowledge falls off a cliff after the training cutoff",
+        title="Model accuracy by the year the current answer took office",
     )
     fig.savefig(out / "fig_cutoff.png", dpi=160)
     plt.close(fig)

@@ -38,6 +38,13 @@ def main() -> None:
     oof = np.load(run / "probes" / "oof_probs.npy")  # [n, L]
     layer_star = probes["selected_layer_modal"]
     base_rate = probes["error_rate"]
+    known = None
+    known_index: dict[int, int] = {}
+    if (run / "probes_known" / "summary.json").exists():
+        known = json.loads((run / "probes_known" / "summary.json").read_text())
+        known_rows = json.loads((run / "probes_known" / "row_index.json").read_text())
+        known_oof = np.load(run / "probes_known" / "oof_probs.npy")
+        known_index = {orig: k for k, orig in enumerate(known_rows)}
 
     items = []
     for i, r in enumerate(rows):
@@ -60,6 +67,10 @@ def main() -> None:
                 "sitelinks": r["sitelinks"],
             }
         )
+        if i in known_index:
+            kt = known_oof[known_index[i]]
+            items[-1]["p_error_known"] = [round(float(x), 3) for x in kt]
+            items[-1]["p_error_known_selected"] = round(float(kt[known["selected_layer_modal"]]), 3)
 
     pairs, patching = [], None
     if (run / "patching" / "summary.json").exists():
@@ -93,7 +104,28 @@ def main() -> None:
                 else None,
                 "n_pairs": patching["n_pairs"] if patching else 0,
             },
+            "known_subset": {
+                "n": known["n"],
+                "error_rate": known["error_rate"],
+                "selected_layer": known["selected_layer_modal"],
+                "probe_auroc": known["selected_layer_metrics"]["auroc"],
+                "probe_accuracy": known["selected_layer_metrics"]["accuracy"],
+                "majority_accuracy": known["majority_accuracy"],
+                "shuffled_auroc": known["controls_at_peak_layer"]["shuffled_auroc"],
+                "random_dir_auroc": known["controls_at_peak_layer"]["random_dir_auroc"],
+                "per_class": known["per_class"],
+                "grade_counts": known["grade_counts"],
+            }
+            if known
+            else None,
         },
+        "layers_known": (
+            pd.read_csv(run / "probes_known" / "layer_metrics.csv")
+            .round(4)
+            .to_dict(orient="records")
+            if known
+            else None
+        ),
         "layers": layer_df.round(4).to_dict(orient="records"),
         "items": items,
         "pairs": pairs,
