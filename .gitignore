@@ -10,3 +10,5 @@ results/**/*.npz
 results/**/*.pt
 .DS_Store
 .env
+results/smoke/
+results/*.log

@@ -34,6 +34,9 @@ from tfi.model import DEFAULT_MODEL, load_model
 
 COMPONENTS = ("hook_resid_post", "hook_attn_out", "hook_mlp_out")
 POSITIONS = ("entity_last", "last")
+WINDOW = (
+    5  # sliding window of adjacent layers for the windowed attn / MLP patch at the entity token
+)
 
 
 def entity_last_position(model, full_prompt: str, subject: str) -> int | None:
@@ -107,20 +110,38 @@ def patch_pair(model, prefix: str, a: dict, b: dict) -> tuple[np.ndarray, dict] 
         return None
     rec = np.zeros((len(COMPONENTS), len(POSITIONS), n_layers), dtype=np.float32)
     positions = {"entity_last": (pos_a, pos_b), "last": (-1, -1)}
+
+    def make_hook(name: str, pa: int, pb: int):
+        src = cache[name][0, pa]
+
+        def hook(act, hook):
+            act[:, pb, :] = src.to(act.dtype)
+            return act
+
+        return hook
+
+    def recovery(hooks: list) -> float:
+        logits = model.run_with_hooks(corrupt, fwd_hooks=hooks)
+        last = logits[0, -1].float()
+        return (float(last[tok_a] - last[tok_b]) - ld_corr) / denom
+
     for ci, comp in enumerate(COMPONENTS):
         for pi, pname in enumerate(POSITIONS):
             pa, pb = positions[pname]
             for layer in range(n_layers):
                 name = f"blocks.{layer}.{comp}"
-                src = cache[name][0, pa]
-
-                def hook(act, hook, src=src, pb=pb):
-                    act[:, pb, :] = src.to(act.dtype)
-                    return act
-
-                logits = model.run_with_hooks(corrupt, fwd_hooks=[(name, hook)])
-                last = logits[0, -1].float()
-                rec[ci, pi, layer] = (float(last[tok_a] - last[tok_b]) - ld_corr) / denom
+                rec[ci, pi, layer] = recovery([(name, make_hook(name, pa, pb))])
+    # windowed patch: attn / MLP outputs of WINDOW adjacent layers centred on each layer, at the
+    # entity token (the measure causal-tracing papers use for "where is the fact looked up")
+    win = np.zeros((2, n_layers), dtype=np.float32)
+    for wi, comp in enumerate(("hook_attn_out", "hook_mlp_out")):
+        for layer in range(n_layers):
+            lo, hi = max(0, layer - WINDOW // 2), min(n_layers, layer + WINDOW // 2 + 1)
+            hooks = [
+                (f"blocks.{k}.{comp}", make_hook(f"blocks.{k}.{comp}", pos_a, pos_b))
+                for k in range(lo, hi)
+            ]
+            win[wi, layer] = recovery(hooks)
     info = {
         "a_id": a["id"],
         "b_id": b["id"],
@@ -135,7 +156,7 @@ def patch_pair(model, prefix: str, a: dict, b: dict) -> tuple[np.ndarray, dict] 
         "entity_pos_corrupt": int(pos_b),
         "n_tokens_clean": int(model.to_tokens(clean).shape[1]),
     }
-    return rec, info
+    return np.concatenate([rec.reshape(-1, n_layers), win]).reshape(-1, n_layers), info
 
 
 def main() -> None:
@@ -172,16 +193,23 @@ def main() -> None:
         infos.append(info)
         if len(recs) % 10 == 0:
             print(f"{len(recs)} pairs done ({i + 1} tried)", flush=True)
-    R = np.stack(recs)  # [P, C, 2, L]
+    flat = np.stack(recs)  # [P, 3*2 + 2, L]
+    n_layers = flat.shape[-1]
+    R = flat[:, : len(COMPONENTS) * len(POSITIONS)].reshape(
+        -1, len(COMPONENTS), len(POSITIONS), n_layers
+    )
+    W = flat[:, len(COMPONENTS) * len(POSITIONS) :]  # [P, 2, L]: windowed attn, windowed mlp
     np.save(out / "recovery.npy", R)
+    np.save(out / "recovery_windowed.npy", W)
     with open(out / "pairs.jsonl", "w") as f:
         for info in infos:
             f.write(json.dumps(info, ensure_ascii=False) + "\n")
-    n_layers = R.shape[-1]
     third = n_layers // 3
     mid = slice(third, 2 * third)
     mean = R.mean(axis=0)  # [C, 2, L]
+    wmean = W.mean(axis=0)  # [2, L]
     mlp_entity = np.clip(mean[2, 0], 0, None)
+    mlp_entity_win = np.clip(wmean[1], 0, None)
     attn_last = np.clip(mean[1, 1], 0, None)
     summary = {
         "n_pairs": int(R.shape[0]),
@@ -200,7 +228,19 @@ def main() -> None:
             }
             for ci, comp in enumerate(COMPONENTS)
         },
+        "window": WINDOW,
+        "windowed_mean_recovery": {
+            "hook_attn_out": wmean[0].round(4).tolist(),
+            "hook_mlp_out": wmean[1].round(4).tolist(),
+        },
+        "windowed_peak": {
+            "hook_attn_out": {"layer": int(wmean[0].argmax()), "recovery": float(wmean[0].max())},
+            "hook_mlp_out": {"layer": int(wmean[1].argmax()), "recovery": float(wmean[1].max())},
+        },
         "mlp_entity_mid_stack_share": float(mlp_entity[mid].sum() / max(mlp_entity.sum(), 1e-9)),
+        "mlp_entity_windowed_mid_stack_share": float(
+            mlp_entity_win[mid].sum() / max(mlp_entity_win.sum(), 1e-9)
+        ),
         "attn_last_mid_stack_share": float(attn_last[mid].sum() / max(attn_last.sum(), 1e-9)),
         "resid_entity_max_recovery": float(mean[0, 0].max()),
         "resid_last_max_recovery": float(mean[0, 1].max()),
