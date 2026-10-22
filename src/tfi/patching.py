@@ -152,7 +152,8 @@ def main() -> None:
     rows = [json.loads(line) for line in open(run / "answers.jsonl")]
     manifest = json.loads((run / "run_manifest.json").read_text())
     prefixes = manifest["fewshot_prefixes"]
-    bench = {json.loads(l)["id"]: json.loads(l) for l in open(manifest["benchmark"])}
+    bench_rows = [json.loads(line) for line in open(manifest["benchmark"])]
+    bench = {x["id"]: x for x in bench_rows}
     for r in rows:  # subject string as it appears in the prompt (office label for P6/P35)
         it = bench.get(r["id"], {})
         r["prompt_subject"] = it.get("office_label") or r["subject_label"]

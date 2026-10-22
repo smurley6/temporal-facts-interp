@@ -170,7 +170,7 @@ def main() -> None:
     # decision threshold: balanced-accuracy-maximizing on each training fold's inner OOF is
     # expensive; use the error base rate on the training fold (a calibrated probe's natural cut)
     thr = np.full(n, np.nan)
-    for k, (tr, te) in enumerate(outer):
+    for tr, te in outer:
         thr[te] = y[tr].mean()
     flagged = p_sel >= thr
 

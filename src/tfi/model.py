@@ -60,7 +60,9 @@ def grade(
 def build_fewshot_prefixes(
     items: list[dict], n_shots: int = N_SHOTS
 ) -> tuple[dict[str, str], set[str]]:
-    """Per relation, the n most popular stable facts are the demonstrations; they leave the eval set."""
+    """Per relation, the n most popular stable facts are the demonstrations.
+
+    They are removed from the evaluation set."""
     prefixes: dict[str, str] = {}
     demo_ids: set[str] = set()
     by_rel: dict[str, list[dict]] = {}

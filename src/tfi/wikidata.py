@@ -28,8 +28,10 @@ WHERE {{
   ?st ps:{pid} ?v .
   ?st wikibase:rank ?rank .
   FILTER(?rank != wikibase:DeprecatedRank)
-  OPTIONAL {{ ?st pqv:P580 ?sv . ?sv wikibase:timeValue ?start ; wikibase:timePrecision ?startPrec . }}
-  OPTIONAL {{ ?st pqv:P582 ?ev . ?ev wikibase:timeValue ?end ; wikibase:timePrecision ?endPrec . }}
+  OPTIONAL {{ ?st pqv:P580 ?sv .
+              ?sv wikibase:timeValue ?start ; wikibase:timePrecision ?startPrec . }}
+  OPTIONAL {{ ?st pqv:P582 ?ev .
+              ?ev wikibase:timeValue ?end ; wikibase:timePrecision ?endPrec . }}
   {office_clause}
   SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en". }}
 }}
